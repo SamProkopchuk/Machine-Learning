@@ -1,11 +1,7 @@
 import numpy as np
-import os.path
 import tensorflow as tf
 import tensorflow_datasets as tfds
-import matplotlib.pyplot as plt
 
-from os import makedirs
-from itertools import chain
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Conv2D
@@ -19,7 +15,7 @@ RESHAPE_SIZE = [200, 200]
 TRAIN_SAMPLES = 23262 * (AUGS_PER_IMG + 1)
 NUM_CLASSES = 1
 BATCH_SIZE = 32
-EPOCHS = 200
+EPOCHS = 50
 
 
 def get_model():
@@ -35,7 +31,7 @@ def get_model():
     model.add(MaxPool2D((2, 2)))
     model.add(Flatten())
     model.add(Dense(128, activation='relu', kernel_initializer='he_uniform'))
-    model.add(Dense(1, activation='softmax'))
+    model.add(Dense(1, activation='sigmoid'))
     return model
 
 
@@ -64,7 +60,7 @@ def main():
     model.compile(
         optimizer='SGD',
         loss='binary_crossentropy',
-        metrics=['binary_crossentropy'])
+        metrics=['accuracy'])
     print(model.summary())
 
     model.fit(
