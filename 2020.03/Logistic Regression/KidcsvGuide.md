@@ -1,0 +1,16 @@
+Thanks to this article for the dataset: https://towardsdatascience.com/real-world-implementation-of-logistic-regression-5136cefb8125
+
+1. Household Income (Income; rounded to the nearest $1,000.00)
+2. Gender (IsFemale = 1 if the person is female, 0 otherwise)
+3. Marital Status (IsMarried = 1 if married, 0 otherwise)
+4. College Educated (HasCollege = 1 if has one or more years of college education, 0 otherwise)
+5. Employed in a Profession (IsProfessional = 1 if employed in a profession, 0 otherwise)
+6. Retired (IsRetired = 1 if retired, 0 otherwise)
+7. Not employed (Unemployed = 1 if not employed, 0 otherwise)
+8. Length of Residency in Current City (ResLength; in years)
+9. Dual Income if Married (Dual = 1 if dual income, 0 otherwise)
+10. Children (Minors = 1 if children under 18 are in the household, 0 otherwise)
+11. Home ownership (Own = 1 if own residence, 0 otherwise)
+12. Resident type (House = 1 if the residence is a single-family house, 0 otherwise)
+13. Race (White = 1 if the race is white, 0 otherwise)
+14. Language (English = 1 is the primary language in the household is English, 0 otherwise)
