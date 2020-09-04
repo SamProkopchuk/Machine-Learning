@@ -1,5 +1,6 @@
-# The following files required data files
+# The following programs require data files (see links)
 
-### (assumed to be in ./data/ unless otherwise noted).
+### Note: data files should be located at ./data/ unless otherwise stated.
 
- - [lstm_swesb_text_gen.py](http://www.scifiscripts.com/scripts/esb_4th.txt)
+ - lstm_swesb_text_gen.py
+   - [Star Wars: The Empire Strikes Back (Episode V) script](http://www.scifiscripts.com/scripts/esb_4th.txt)

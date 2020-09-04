@@ -33,6 +33,7 @@ SEQUENCE_LEN = 100
 EPOCHS = 10
 BATCH_SIZE = 32
 
+
 def get_dataset_and_info(file_path):
     def get_text():
         abspath = os.path.abspath(file_path)
@@ -60,7 +61,7 @@ def get_dataset_and_info(file_path):
         'id2char': id2char,
         'text_as_ids': text_as_ids
     }
-    
+
     return dataset, info
 
 
@@ -70,6 +71,7 @@ def main():
     for X, Y in ds.take(1):
         print(X.numpy())
         print(Y.numpy())
+
 
 if __name__ == '__main__':
     main()
