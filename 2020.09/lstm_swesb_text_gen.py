@@ -1,6 +1,9 @@
 '''
 An example of text generation using the script for
 Star Wars: The Empire Strikes Back (Episode V)
+
+The following tutorial was referenced and is thus somewhat similar in implementation:
+https://www.tensorflow.org/tutorials/text/text_generation
 '''
 
 __author__ = 'Sam Prokopchuk'
@@ -29,7 +32,15 @@ from tensorflow.keras.models import Sequential
 SEQUENCE_LEN = 100
 
 
+# Model params:
+EMBEDDING_DIM = 256
+RNN_BATCH_SIZE = 1
+RNN_UNITS = 1024
+
+
 # Training constants:
+# Num of dataset values to shuffle in buffer
+BUFFER_SIZE = 10000
 EPOCHS = 10
 BATCH_SIZE = 32
 
@@ -65,12 +76,30 @@ def get_dataset_and_info(file_path):
     return dataset, info
 
 
+def build_model(vocab_size):
+    model = Sequential()
+    model.add(Embedding(
+        vocab_size, EMBEDDING_DIM,
+        batch_input_shape=[RNN_BATCH_SIZE, None]))
+    model.add(LSTM(
+        RNN_UNITS,
+        return_sequences=True,
+        stateful=True
+    ))
+    model.add(Dense(vocab_size))
+    return model
+
+
 def main():
     ds, info = get_dataset_and_info('./data/sw_esb_4th.txt')
+    ds = ds.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+    vocab, char2id, id2char, text_as_ids = (
+        info['vocab'],
+        info['char2id'],
+        info['id2char'],
+        info['text_as_ids'])
 
-    for X, Y in ds.take(1):
-        print(X.numpy())
-        print(Y.numpy())
+    model = build_model(len(vocab))
 
 
 if __name__ == '__main__':
