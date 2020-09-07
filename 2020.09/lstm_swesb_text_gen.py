@@ -34,7 +34,6 @@ SEQUENCE_LEN = 100
 
 # Model params:
 EMBEDDING_DIM = 256
-RNN_BATCH_SIZE = 1
 RNN_UNITS = 1024
 
 
@@ -80,19 +79,24 @@ def build_model(vocab_size):
     model = Sequential()
     model.add(Embedding(
         vocab_size, EMBEDDING_DIM,
-        batch_input_shape=[RNN_BATCH_SIZE, None]))
+        batch_input_shape=[BATCH_SIZE, None]))
     model.add(LSTM(
         RNN_UNITS,
         return_sequences=True,
-        stateful=True
-    ))
+        stateful=True))
     model.add(Dense(vocab_size))
     return model
 
 
 def main():
     ds, info = get_dataset_and_info('./data/sw_esb_4th.txt')
-    ds = ds.shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+    # Process sets of SEQUENCE_LEN, w/ batch size of BATCH_SIZE.
+    # Eg, if SEQUENCE_LEN = 100 and BATCH_SIZE = 32,
+    # a batch sample will have shape (32,100).
+    ds = ds.shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
+    for X, Y in ds.take(1):
+        print(X.numpy().shape)
+        print(Y.numpy().shape)
     vocab, char2id, id2char, text_as_ids = (
         info['vocab'],
         info['char2id'],
@@ -100,6 +104,11 @@ def main():
         info['text_as_ids'])
 
     model = build_model(len(vocab))
+
+    opt = tf.keras.optimizers.RMSprop()
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    model.compile(optimizer=opt, loss=loss_fn, metrics=['accuracy'])
+    history = model.fit(ds, epochs=EPOCHS)
 
 
 if __name__ == '__main__':
