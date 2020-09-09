@@ -40,7 +40,7 @@ RNN_UNITS = 1024
 # Training constants:
 # Num of dataset values to shuffle in buffer
 BUFFER_SIZE = 10000
-EPOCHS = 10
+EPOCHS = 20
 BATCH_SIZE = 32
 
 
@@ -87,17 +87,18 @@ def build_model(vocab_size, batch_size=BATCH_SIZE):
 
 
 def generate_text(model, start_string, char2id, id2char, num_generate=1000):
-    generated_text = ''
+    generated_text = []
     model.reset_states()
-    char_ids = tf.expand_dims(
-        [char2id[c] for c in start_string], axis=0)
-    for i in range(num_generate):
-        predictions = model.predict(char_ids)
-        next_prediction = tf.squeeze(predictions, axis=0)[-1]
-        pred_id = tf.math.argmax(next_prediction)
-        generated_text += id2char[pred_id]
-        char_ids = tf.expand_dims(pred_id, axis=0)
-    return start_string + generated_text
+    char_ids = tf.expand_dims([char2id[c] for c in start_string], axis=0)
+    for _ in range(num_generate):
+        # This indexing is done because the given shape is
+        # [1, len(start_string), 70] (first iteration) or [1, 1, 70]:
+        Y = model(char_ids)[:, -1]
+        # tf.random.categorical softmaxes Y and then returns
+        # an arg idx based upon a random categorical distribution.
+        pred_id = tf.random.categorical(Y, num_samples=1)[-1, 0].numpy()
+        generated_text.append(id2char[pred_id])
+    return start_string + ''.join(generated_text)
 
 
 def main():
@@ -128,7 +129,7 @@ def main():
     gen_model = build_model(vocab_size, batch_size=1)
     gen_model.set_weights(model.get_weights())
     del model
-    res = generate_text(gen_model, 'CHEWY: ', char2id, id2char)
+    res = generate_text(gen_model, 'CHEWIE', char2id, id2char)
     print(res)
 
 
