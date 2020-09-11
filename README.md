@@ -5,6 +5,7 @@ Resources used while learning ML concepts:
  - ["Deep Learning Specialization" From Coursera](https://www.coursera.org/specializations/deep-learning)
  - [18.06 Linear Algebra Lectures By: Gilbert Strang](https://www.youtube.com/watch?v=7UJ4CFRGd-U&list=PL221E2BBF13BECF6C)
  - [Linear Regression Using Matrix Calculus By: Vivek Yadav](https://vxy10.github.io/2016/06/25/lin-reg-matrix/)
+ - Reinforcement Learning: An Introduction (Second Edition), By: Richard S. Sutton and Andrew G. Barto
  
 Documentation:
  - [Python Documentation](https://docs.python.org/3.7/)
