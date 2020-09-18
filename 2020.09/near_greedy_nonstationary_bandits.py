@@ -11,10 +11,9 @@ depicting the effects of different epsilons.
 
 __author__ = 'Sam Prokopchuk'
 
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
-from scipy.stats import norm
 
 # Feel free to (conservatively) tinker with these constants:
 
@@ -23,26 +22,34 @@ NUM_BANDITS = 10
 MIN_MEAN = -10.
 MAX_MEAN = 10.
 # Note: A uniform dist from MIN_MEAN to MAX_MEAN
-# will be used to determine the bandits' averages.
+# will be used to determine the bandits' initial averages.
 VARIANCE = 1
+
 # Probability of each bandits mean changing each round:
 WALK_PROB = 0.2
-# Distribution from which that bandit will determine
-# how far to walk from its current mean.
-# Should be an instance of scipy.stats.rv_continuous:
-WALK_DISTRIBUTION = norm(0, 0.4)
 
-# Different probabilities of exploring every iteration
-# (Instead of exploiting)
-# (chosing current value with highest expectation)
+
+def walk():
+    '''
+    Returns value determining how far a bandit will walk
+    from its current mean on the offchance of WALK_PROB:
+    '''
+    return np.random.normal(0, 0.4)
+
+
+# Different probabilities of exploring every iteration.
+# (Instead of exploiting: choosing current bandit with highest expectation).
 EPSILONS = [0.01, 0.1, 0.5, 0.9, 0.99]
-# The weight to give the most recent reward signal:
+# The weight to give the most recent reward signal, (weighted average):
 STEP_SIZE = 0.2
 TIME_STEPS = 1000
 
 
 def use_bandit(mean, variance=VARIANCE):
-    return norm(mean, variance).rvs()
+    '''
+    Returns reward of a bandit with given mean and variance.
+    '''
+    return np.random.normal(mean, variance)
 
 
 def main():
@@ -64,23 +71,22 @@ def main():
                 # Exploit
                 bandit_idx = np.argmax(expected_values[e_idx])
 
-            sample = use_bandit(bandit_means[bandit_idx])
-            # Simple weighted average:
+            reward = use_bandit(bandit_means[bandit_idx])
+            # Use weighted average to update expectation of used bandit:
             expected_values[e_idx][bandit_idx] += (
-                STEP_SIZE * (sample - expected_values[e_idx][bandit_idx]))
+                STEP_SIZE * (reward - expected_values[e_idx][bandit_idx]))
 
             if t != 0:
-                reward_history[e_idx][t] = reward_history[e_idx][t-1] + sample
-
+                reward_history[e_idx][t] = reward_history[e_idx][t-1] + reward
+        # Determine which bandits' means should 'walk'
         update_mean_idx = np.argwhere(np.random.random(n) < WALK_PROB)
-        # No obvious way (to me) of vectorizing...
+        # No clean way (afaik) of vectorizing. Also fast enough as is..
         for idx in update_mean_idx:
-            bandit_means[idx] += WALK_DISTRIBUTION.rvs()
+            bandit_means[idx] += walk()
 
     for i, e in enumerate(EPSILONS):
         plt.plot(np.arange(TIME_STEPS), reward_history[i],
                  label=f'{chr(949)} = {e}')
-
     plt.xlabel('Time Step')
     plt.ylabel('Accumulated Reward')
     plt.legend()
