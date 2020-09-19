@@ -76,7 +76,9 @@ def main():
             expected_values[e_idx][bandit_idx] += (
                 STEP_SIZE * (reward - expected_values[e_idx][bandit_idx]))
 
-            if t != 0:
+            if t == 0:
+                reward_history[e_idx][t] = reward
+            else:
                 reward_history[e_idx][t] = reward_history[e_idx][t-1] + reward
         # Determine which bandits' means should 'walk'
         update_mean_idx = np.argwhere(np.random.random(n) < WALK_PROB)
