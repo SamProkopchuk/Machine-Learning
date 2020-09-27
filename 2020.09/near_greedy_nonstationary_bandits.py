@@ -18,15 +18,17 @@ import matplotlib.pyplot as plt
 # Feel free to (conservatively) tinker with these constants:
 
 # Bandit 'variables':
+# Note: A uniform dist from MIN_MEAN to MAX_MEAN
+# will be used to determine the bandits' initial averages.
 NUM_BANDITS = 10
 MIN_MEAN = -10.
 MAX_MEAN = 10.
-# Note: A uniform dist from MIN_MEAN to MAX_MEAN
-# will be used to determine the bandits' initial averages.
+
+# Variance of the bandits' reward:
 VARIANCE = 1
 
-# Probability of each bandits mean changing each round:
-WALK_PROB = 0.2
+# Probability of each bandits' mean 'walking' each timestep:
+WALK_PROB = 0.1
 
 
 def walk():
@@ -34,7 +36,7 @@ def walk():
     Returns value determining how far a bandit will walk
     from its current mean on the offchance of WALK_PROB:
     '''
-    return np.random.normal(0, 0.4)
+    return np.random.normal(0, 1)
 
 
 # Different probabilities of exploring every iteration.
@@ -86,10 +88,10 @@ def main():
         for idx in update_mean_idx:
             bandit_means[idx] += walk()
 
-    for i, e in enumerate(EPSILONS):
-        plt.plot(np.arange(TIME_STEPS), reward_history[i],
+    for idx, e in enumerate(EPSILONS):
+        plt.plot(np.arange(TIME_STEPS), reward_history[idx],
                  label=f'{chr(949)} = {e}')
-    plt.xlabel('Time Step')
+    plt.xlabel('Time Steps')
     plt.ylabel('Accumulated Reward')
     plt.legend()
     plt.show()
