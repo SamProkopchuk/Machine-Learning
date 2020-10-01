@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 class Bandit(object):
     '''Contains all bandit properties and methods'''
 
-    def __init__(self, mean: float, variance=1.: float, walk_prob=0.1: float):
+    def __init__(self, mean: float, variance: float = 1., walk_prob: float = 0.1):
         self.mean = mean
         self.variance = variance
         self.walk_prob = walk_prob
@@ -107,12 +107,12 @@ class User(object):
 
     def use(bandit: Bandit):
         self.iterations += 1
-        reward = bandit.use()
+        reward = bandit.get_reward()
         total_reward = self.reward_history[self.iterations - 1] + reward
         self.reward_history[self.iterations] = total_reward
 
 
-def main(num_bandits=10, min_mean=-10, max_mean=10, ):
+def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
     '''
     Args:
     num_bandits: Self Explanatory
@@ -125,13 +125,15 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, ):
     min_mean = -10
     max_mean = 10
 
-    bandit_means = np.random.uniform(min_meann, max_mean, num_bandits)
+    bandit_means = np.random.uniform(min_mean, max_mean, num_bandits)
     bandits = [Bandit(mean) for mean in bandit_means]
 
     users = []
-    users += [User(asr)]
 
-    for t in range(TIME_STEPS):
+    epsilons = [0.01, 0.1, 0.5]
+    users += [User(EGreedy(e, num_bandits)) for e in epsilons]
+
+    for t in range(time_steps):
         exit(0)
 
 
