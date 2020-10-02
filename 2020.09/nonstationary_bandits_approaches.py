@@ -17,7 +17,8 @@ import matplotlib.pyplot as plt
 class Bandit(object):
     '''Contains all bandit properties and methods'''
 
-    def __init__(self, mean: float, variance: float = 1., walk_prob: float = 0.1):
+    def __init__(self, mean: float, variance: float = 1.,
+                 walk_prob: float = 0.1):
         self.mean = mean
         self.variance = variance
         self.walk_prob = walk_prob
@@ -35,11 +36,13 @@ class Bandit(object):
 
 
 class ActionSelectionRule(object):
-    '''Base Class for action-selection rules'''
+    '''Base class for action-selection rules'''
 
-    def __init__(self):
-        self.last_action_idx = None
+    def __init__(self, num_actions):
+        self.num_actions = num_actions
+        self.action_idx = None
         self.awaiting_feedback = False
+        self.action_selected_count = np.zeros(num_actions)
 
     def get_action(self):
         raise NotImplementedError
@@ -48,28 +51,8 @@ class ActionSelectionRule(object):
         raise NotImplementedError
 
 
-class EpsilonActionSelectionRule(ActionSelectionRule):
-    def __init__(self, epsilon: float, num_actions: int):
-        super().__init__()
-        self.epsilon = epsilon
-        self.num_actions = num_actions
-        self.expected_rewards = np.zeros(num_actions)
-
-    def get_action(self):
-        assert(not self.awaiting_feedback)
-        if np.random.random() < self.epsilon:
-            # Explore
-            self.last_action_idx = np.random.randint(self.num_actions)
-        else:
-            # Exploit:
-            self.last_action_idx = np.argmax(self.expected_rewards)
-        self.action_selected_count[action_idx] += 1
-        self.awaiting_feedback = True
-        return action_idx
-
-
-class EGreedy(EpsilonActionSelectionRule):
-    '''Select object which has highest expectation'''
+class AverageActionValueRule(ActionSelectionRule):
+    '''Action values are determined by their average reward'''
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -77,14 +60,14 @@ class EGreedy(EpsilonActionSelectionRule):
 
     def feedback(self, reward):
         assert(self.awaiting_feedback)
-        delta = reward - self.expected_rewards[self.last_action_idx]
-        delta /= self.action_selected_count[self.last_action_idx]
-        self.expected_rewards[self.last_action_idx] += delta
+        delta = reward - self.action_value_estimates[self.action_idx]
+        delta /= self.action_selected_count[self.action_idx]
+        self.action_value_estimates[self.action_idx] += delta
         self.awaiting_feedback = False
 
 
-class WeightedAverageGreedy(EpsilonActionSelectionRule):
-    '''Select object with highest weighted average expectation'''
+class WeightedAverageActionValueRule(ActionSelectionRule):
+    '''Action values are determined by a weighted average of their reward'''
 
     def __init__(self, alpha: float, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -92,9 +75,89 @@ class WeightedAverageGreedy(EpsilonActionSelectionRule):
 
     def feedback(self, reward):
         assert(self.awaiting_feedback)
-        self.expected_rewards[last_action_idx] += self.alpha * \
-            (reward - self.expected_rewards[self.last_action_idx])
+        self.action_value_estimates[self.action_idx] += self.alpha * \
+            (reward - self.action_value_estimates[self.action_idx])
         self.awaiting_feedback = False
+
+
+class EpsilonActionSelectionRule(ActionSelectionRule):
+    '''Base class for approaches that '''
+
+    def __init__(self, epsilon: float, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.epsilon = epsilon
+        self.action_value_estimates = np.zeros(self.num_actions)
+
+    def get_action(self):
+        assert(not self.awaiting_feedback)
+        if np.random.random() < self.epsilon:
+            # Explore
+            self.action_idx = np.random.randint(self.num_actions)
+        else:
+            # Exploit:
+            self.action_idx = np.argmax(self.action_value_estimates)
+        self.action_selected_count[self.action_idx] += 1
+        self.awaiting_feedback = True
+        return self.action_idx
+
+
+class AverageEGreedy(EpsilonActionSelectionRule, AverageActionValueRule):
+    '''
+    Select object with highest average expectation
+    Occasionally explore with some epsilon probability.
+    '''
+    def __repr__(self):
+        return (f"{self.__class__.__name__} with " +
+            f"epsilon {self.epsilon}")
+
+
+class WeightedAverageEGreedy(
+        WeightedAverageActionValueRule,
+        EpsilonActionSelectionRule):
+    '''
+    Select object with highest weighted average expectation
+    Occasionally explore with some epsilon probability.
+    '''
+    def __repr__(self):
+        return (f"{self.__class__.__name__} with " +
+            f"step size {self.alpha} and epsilon {self.epsilon}")
+
+
+
+class UCB(ActionSelectionRule):
+    '''Base class for Upper-Confidence-Bound action selection approaches.'''
+    EPSILON = 1e-8
+
+    def __init__(self, c, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.c = c
+
+    def get_action(self):
+        assert(not self.awaiting_feedback)
+        t = self.action_selected_count.sum()
+        self.action_idx = np.argmax(
+            self.action_value_estimates +
+            self.c * np.sqrt(np.log(self.t) / (
+                self.action_selected_count + UpperConfidenceBound.EPSILON)))
+        self.action_selected_count[self.action_idx] += 1
+        self.awaiting_feedback = True
+        return self.action_idx
+
+
+class AverageUCB(UCB, AverageActionValueRule):
+    '''
+    Upper-Confidence-Bonud Action Selection
+    Action-value estimates are aquired by averaging previous rewards.
+    '''
+    pass
+
+
+class WeightedAverageUCB(UCB, WeightedAverageEGreedy):
+    '''
+    Upper-Confidence-Bonud Action Selection
+    Action-value estimates are aquired using a weighted average.
+    '''
+    pass
 
 
 class User(object):
@@ -103,13 +166,20 @@ class User(object):
     def __init__(self, asr: ActionSelectionRule):
         self.iterations = 0
         self.reward_history = {0: 0}
+        self.total_reward = 0
         self.asr = asr
 
-    def use(bandit: Bandit):
+    def select_action(self, bandits):
+        bandit_idx = self.asr.get_action()
         self.iterations += 1
-        reward = bandit.get_reward()
-        total_reward = self.reward_history[self.iterations - 1] + reward
-        self.reward_history[self.iterations] = total_reward
+        reward = bandits[bandit_idx].get_reward()
+        self.total_reward += reward
+        self.reward_history[self.iterations] = self.total_reward
+        self.asr.feedback(reward)
+
+    def __repr__(self):
+        return (("User with action selection rule:") +
+            (f"\n{self.asr}\nTotal reward: {self.total_reward}"))
 
 
 def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
@@ -120,7 +190,7 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
     max_mean: maximum initial mena for each bandit
 
     '''
-    # Params to make things easier:
+    # Bandit params:
     num_bandits = 10
     min_mean = -10
     max_mean = 10
@@ -131,10 +201,18 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
     users = []
 
     epsilons = [0.01, 0.1, 0.5]
-    users += [User(EGreedy(e, num_bandits)) for e in epsilons]
+    eg_users = [User(AverageEGreedy(e, num_bandits)) for e in epsilons]
+    wa_users = [User(WeightedAverageEGreedy(0.2, e, num_bandits)) for e in epsilons]
+
+    users = eg_users + wa_users
 
     for t in range(time_steps):
-        exit(0)
+        for user in users:
+            user.select_action(bandits)
+        for bandit in bandits:
+            bandit.update_params()
+    for user in users:
+        print(user)
 
 
 if __name__ == '__main__':
