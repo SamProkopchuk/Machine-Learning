@@ -14,10 +14,11 @@ Each bandit will provide a reward upon usage.
 The reward is taken from a gaussian distribution with:
  - Variance of 1. (Can be changed if desired)
  - Individually chosen means randomly taken from the same uniform range.
+   - (This is done in the main function).
 
 After each round (when each user has used a bandit),
 the bandits' update_params() method should be called.
-This will cause the bandits' means to "walk" will probability walk_prob.
+This will cause the bandits' means to "walk" with probability walk_prob.
 The amount walked is determined by np.random.normal();
 (aka the standard normal distribution).
 '''
@@ -166,7 +167,7 @@ class UCB(ActionSelectionRule):
 
 class AverageUCB(UCB, AverageActionValueRule):
     '''
-    Upper-Confidence-Bonud Action Selection
+    Upper-Confidence-Bound Action Selection
     Action-value estimates are aquired by averaging previous rewards.
     '''
 
@@ -176,7 +177,7 @@ class AverageUCB(UCB, AverageActionValueRule):
 
 class WeightedAverageUCB(UCB, WeightedAverageActionValueRule):
     '''
-    Upper-Confidence-Bonud Action Selection
+    Upper-Confidence-Bound Action Selection
     Action-value estimates are aquired using a weighted average.
     '''
 
@@ -213,7 +214,6 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
     num_bandits: Self Explanatory
     min_mean: minimum initial mean for each bandit
     max_mean: maximum initial mena for each bandit
-
     '''
     bandit_means = np.random.uniform(min_mean, max_mean, num_bandits)
     bandits = [Bandit(mean) for mean in bandit_means]
