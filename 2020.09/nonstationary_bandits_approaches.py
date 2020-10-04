@@ -1,11 +1,25 @@
 #!/usr/bin/env python
 
 '''
-Three RL approaches to a non-stationary k-bandits problem.
+Approaches to a non-stationary k-bandits problem.
 
-The accumulated reward for different approaches with
-varying microparams over time is then graphed,
-depicting the effects of different epsilons.
+Users (Objects that interact with the bandits):
+ - Users choose bandits by a given action-selection function.
+ - They accumulate reward over time by using bandits.
+
+The Environment:
+
+A number of bandits is given.
+Each bandit will provide a reward upon usage.
+The reward is taken from a gaussian distribution with:
+ - Variance of 1. (Can be changed if desired)
+ - Individually chosen means randomly taken from the same uniform range.
+
+After each round (when each user has used a bandit),
+the bandits' update_params() method should be called.
+This will cause the bandits' means to "walk" will probability walk_prob.
+The amount walked is determined by np.random.normal();
+(aka the standard normal distribution).
 '''
 
 __author__ = 'Sam Prokopchuk'
@@ -201,11 +215,6 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
     max_mean: maximum initial mena for each bandit
 
     '''
-    # Bandit params:
-    num_bandits = 10
-    min_mean = -10
-    max_mean = 10
-
     bandit_means = np.random.uniform(min_mean, max_mean, num_bandits)
     bandits = [Bandit(mean) for mean in bandit_means]
 
@@ -219,7 +228,7 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
                 for e in epsilons]
     ucb_users = [User(AverageUCB(ss, num_bandits)) for ss in step_sizes]
     waucb_users = [User(WeightedAverageUCB(ss, e, num_bandits))
-                    for ss, e in ess_product]
+                   for ss, e in ess_product]
 
     users = eg_users + wa_users + ucb_users + waucb_users
 
