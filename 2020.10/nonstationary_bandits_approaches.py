@@ -29,6 +29,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from itertools import product
+from collections import OrderedDict
 
 
 class Bandit(object):
@@ -129,8 +130,8 @@ class AverageEGreedy(EpsilonActionSelectionRule, AverageActionValueRule):
     '''
 
     def __repr__(self):
-        return (f'{self.__class__.__name__} with ' +
-                f'epsilon {self.epsilon}')
+        return (f'{self.__class__.__name__}; ' +
+                f'{chr(949)} = {self.epsilon}')
 
 
 class WeightedAverageEGreedy(
@@ -141,8 +142,8 @@ class WeightedAverageEGreedy(
     '''
 
     def __repr__(self):
-        return (f'{self.__class__.__name__} with ' +
-                f'step size {self.alpha} and epsilon {self.epsilon}')
+        return (f'{self.__class__.__name__}; ' +
+                f'{chr(945)} = {self.alpha}, {chr(949)} = {self.epsilon}')
 
 
 class UCB(ActionSelectionRule):
@@ -152,13 +153,14 @@ class UCB(ActionSelectionRule):
     def __init__(self, c, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.c = c
+        self.time_step = 0.
 
     def get_action(self):
         assert(not self.awaiting_feedback)
-        t = self.action_selected_count.sum()
+        self.time_step += 1.
         self.action_idx = np.argmax(
             self.action_value_estimates +
-            self.c * np.sqrt(np.log(t) / (
+            self.c * np.sqrt(np.log(self.time_step) / (
                 self.action_selected_count + UCB.EPSILON)))
         self.action_selected_count[self.action_idx] += 1
         self.awaiting_feedback = True
@@ -172,7 +174,7 @@ class AverageUCB(UCB, AverageActionValueRule):
     '''
 
     def __repr__(self):
-        return f'{self.__class__.__name__} with explore constant {self.c}'
+        return f'{self.__class__.__name__}; c = {self.c}'
 
 
 class WeightedAverageUCB(UCB, WeightedAverageActionValueRule):
@@ -183,7 +185,7 @@ class WeightedAverageUCB(UCB, WeightedAverageActionValueRule):
 
     def __repr__(self):
         return (f'{self.__class__.__name__} with ' +
-                f'explore constant {self.c} and step size {self.alpha}')
+                f'c = {self.c}, {chr(945)} = {self.alpha}')
 
 
 class User(object):
@@ -191,7 +193,7 @@ class User(object):
 
     def __init__(self, asr: ActionSelectionRule):
         self.iterations = 0
-        self.reward_history = {0: 0}
+        self.reward_history = OrderedDict({0: 0})
         self.total_reward = 0
         self.asr = asr
 
@@ -204,8 +206,15 @@ class User(object):
         self.asr.feedback(reward)
 
     def __repr__(self):
-        return (('User with action selection rule:') +
-                (f'\n{self.asr}\nTotal reward: {self.total_reward}'))
+        return (f'{self.__class__.__name__} using ' +
+                f'{self.asr}\nNet reward: {self.total_reward}')
+
+def show_reward_histories(users):
+    for user in users:
+        x, y = zip(*user.reward_history.items())
+        plt.plot(x, y, label=user.asr)
+    plt.legend()
+    plt.show()
 
 
 def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
@@ -220,6 +229,8 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
 
     epsilons = [0.01, 0.1, 0.5]
     step_sizes = [0.1, 0.2, 0.5]
+    # List of tuples containing all possible
+    # combinations of (epsilon, step_size)
     ess_product = list(product(epsilons, step_sizes))
 
     users = []
@@ -232,13 +243,22 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
 
     users = eg_users + wa_users + ucb_users + waucb_users
 
+    # Run the simulation:
     for t in range(time_steps):
         for user in users:
             user.select_action(bandits)
         for bandit in bandits:
             bandit.update_params()
-    for user in users:
-        print(user)
+
+    # Show some reward history graph:
+    show_reward_histories(users)
+
+    # Sort users descending by total reward:
+    users.sort(key=lambda user: user.total_reward, reverse=True)
+    # Print summary:
+    sep = '\n---------------------------\n'
+    print('Summary:', end=sep)
+    print(*users, sep=sep, end=sep)
 
 
 if __name__ == '__main__':
