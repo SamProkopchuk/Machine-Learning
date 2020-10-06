@@ -209,11 +209,12 @@ class User(object):
         return (f'{self.__class__.__name__} using ' +
                 f'{self.asr}\nNet reward: {self.total_reward}')
 
-def show_reward_histories(users):
+
+def show_reward_histories(users, title=None):
     for user in users:
         x, y = zip(*user.reward_history.items())
         plt.plot(x, y, label=user.asr)
-    plt.legend()
+    plt.legend(title=title)
     plt.show()
 
 
@@ -229,17 +230,18 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
 
     epsilons = [0.01, 0.1, 0.5]
     step_sizes = [0.1, 0.2, 0.5]
+    ucb_constants = [0.5, 1, 2]
     # List of tuples containing all possible
     # combinations of (epsilon, step_size)
-    ess_product = list(product(epsilons, step_sizes))
+    sse_product = list(product(ucb_constants, epsilons))
+    css_product = list(product(ucb_constants, step_sizes))
 
-    users = []
     eg_users = [User(AverageEGreedy(e, num_bandits)) for e in epsilons]
-    wa_users = [User(WeightedAverageEGreedy(0.2, e, num_bandits))
-                for e in epsilons]
-    ucb_users = [User(AverageUCB(ss, num_bandits)) for ss in step_sizes]
-    waucb_users = [User(WeightedAverageUCB(ss, e, num_bandits))
-                   for ss, e in ess_product]
+    wa_users = [User(WeightedAverageEGreedy(ss, e, num_bandits))
+                for ss, e in sse_product]
+    ucb_users = [User(AverageUCB(c, num_bandits)) for c in ucb_constants]
+    waucb_users = [User(WeightedAverageUCB(c, ss, num_bandits))
+                   for c, ss in css_product]
 
     users = eg_users + wa_users + ucb_users + waucb_users
 
@@ -250,15 +252,18 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
         for bandit in bandits:
             bandit.update_params()
 
-    # Show some reward history graph:
-    show_reward_histories(users)
-
     # Sort users descending by total reward:
     users.sort(key=lambda user: user.total_reward, reverse=True)
+
+    # Show some reward history graph:
+    show_reward_histories(
+        users, title='Users sorted descending by final reward:')
+
     # Print summary:
-    sep = '\n---------------------------\n'
-    print('Summary:', end=sep)
-    print(*users, sep=sep, end=sep)
+    print('Summary:')
+    for user in users:
+        print('_' * len(max(user.__repr__().split('\n'))))
+        print(user)
 
 
 if __name__ == '__main__':
