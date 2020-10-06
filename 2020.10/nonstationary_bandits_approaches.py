@@ -233,7 +233,7 @@ def main(num_bandits=10, min_mean=-10, max_mean=10, time_steps=1000):
     ucb_constants = [0.5, 1, 2]
     # List of tuples containing all possible
     # combinations of (epsilon, step_size)
-    sse_product = list(product(ucb_constants, epsilons))
+    sse_product = list(product(step_sizes, epsilons))
     css_product = list(product(ucb_constants, step_sizes))
 
     eg_users = [User(AverageEGreedy(e, num_bandits)) for e in epsilons]
