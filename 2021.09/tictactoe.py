@@ -15,10 +15,11 @@ The architecture:
 1 node for who's move it is.
 '''
 import numpy as np
+import pandas as pd
+import pathlib
 import tensorflow as tf
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, InputLayer
+from tensorflow.keras.layers import Dense, Dropout, InputLayer, Sequential
 from typing import Optional, Tuple
 
 
@@ -47,7 +48,8 @@ class EvaluationFunction:
         self._model.fit(*args, **kwargs)
 
     def __call__(self, board, whosMove):
-        return self._model(np.r_[board.ravel(), whosMove][np.newaxis, ...], training=False).numpy().item()
+        return self._model(np.r_[board.ravel(), whosMove]
+                           [np.newaxis, ...], training=False).numpy().item()
 
 
 class MiniMaxAI:
@@ -60,9 +62,10 @@ class MiniMaxAI:
         self._f = evaluation_function
         self.max_depth = max_depth
 
-    def minimax(self, board, p, depth, alpha, beta) -> Tuple[float, Optional[int]]:
-        if Game.isWinner(board, 1-p):
-            return (1 if (1-p == 0) else -1), None
+    def minimax(self, board, p, depth, alpha,
+                beta) -> Tuple[float, Optional[int]]:
+        if Game.isWinner(board, 1 - p):
+            return (1 if (1 - p == 0) else -1), None
         elif board.sum() == 9:
             # Board is full
             return 0, None
@@ -71,12 +74,13 @@ class MiniMaxAI:
         else:
             best_weight = INF if p else -INF
             best_move = None
-            for move in range(9):
+            # Use np.random.permutation to not select same moves each time lol
+            for move in np.random.permutation(9):
                 r, c = divmod(move, 3)
                 if board[r][c].any():
                     continue
                 board[r][c][p] = 1
-                weight, _ = self.minimax(board, 1-p, depth+1, alpha, beta)
+                weight, _ = self.minimax(board, 1 - p, depth + 1, alpha, beta)
                 board[r][c][p] = 0
                 if p:
                     if weight < best_weight:
@@ -108,8 +112,8 @@ class CLIPlayer:
             try:
                 row, col = map(int, input(
                     'Enter space-separated row and column of tile:').split())
-                move = 3 * (row-1) + col-1
-            except:
+                move = 3 * (row - 1) + col - 1
+            except BaseException:
                 continue
         return move
 
@@ -155,7 +159,7 @@ class Game:
             if Game.isWinner(self.board, p):
                 game_history['winner'] = p
                 break
-            p = 1-p
+            p = 1 - p
         return game_history
 
 
@@ -163,9 +167,15 @@ def main():
     evaluation_function = EvaluationFunction()
     player1 = MiniMaxAI(0, evaluation_function, max_depth=5)
     player2 = MiniMaxAI(1, evaluation_function, max_depth=5)
-    game = Game(player1, player2)
-    game_history = game.play(verbose=True)
-    print(game_history)
+    game_histories = []
+    for gameno in range(100):
+        game = Game(player1, player2)
+        game_history = game.play()
+        print(f'Game result: {game_history}')
+        game_histories.append(game_history)
+    df = pd.DataFrame(game_histories)
+    pathlib.Path('./data').mkdir(exist_ok=True)
+    df.to_csv('./data/histories.csv', index=False)
 
 
 if __name__ == '__main__':
