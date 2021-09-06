@@ -19,11 +19,12 @@ import pandas as pd
 import pathlib
 import tensorflow as tf
 
-from tensorflow.keras.layers import Dense, Dropout, InputLayer, Sequential
+from tensorflow.keras.layers import Dense, Dropout, InputLayer
+from tensorflow.keras import Sequential
 from typing import Optional, Tuple
 
 
-MAXDEPTH = 10
+MAXDEPTH = 3
 INF = 1 << 10
 
 
@@ -65,7 +66,7 @@ class MiniMaxAI:
     def minimax(self, board, p, depth, alpha,
                 beta) -> Tuple[float, Optional[int]]:
         if Game.isWinner(board, 1 - p):
-            return (1 if (1 - p == 0) else -1), None
+            return (1 if p else -1), None
         elif board.sum() == 9:
             # Board is full
             return 0, None
@@ -165,8 +166,8 @@ class Game:
 
 def main():
     evaluation_function = EvaluationFunction()
-    player1 = MiniMaxAI(0, evaluation_function, max_depth=5)
-    player2 = MiniMaxAI(1, evaluation_function, max_depth=5)
+    player1 = MiniMaxAI(0, evaluation_function, max_depth=MAXDEPTH)
+    player2 = MiniMaxAI(1, evaluation_function, max_depth=MAXDEPTH)
     game_histories = []
     for gameno in range(100):
         game = Game(player1, player2)
