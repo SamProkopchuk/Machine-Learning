@@ -65,7 +65,7 @@ def expected_reward(a, s):
     return -1
 
 
-def calculate_next_state_value(s, current_state_values, lmbda=0.9):
+def calculate_next_state_value(s, current_state_values, lmbda=0.999):
     '''
     Again, we work around using the 4-value probability function p
     as we have complete knowledge of the environment's dynamics.
