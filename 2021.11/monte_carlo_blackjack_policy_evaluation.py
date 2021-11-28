@@ -15,10 +15,9 @@ States:
 '''
 
 import numpy as np
+import matplotlib.pyplot as plt
 from random import randint
 from itertools import product
-import matplotlib.pyplot as plt
-
 
 def card() -> int:
     return np.clip(randint(1, 14), 1, 10)
