@@ -38,7 +38,7 @@ def cards_to_state(player_cards, dealer_cards) -> tuple:
         dealer_cards[0])
 
 
-def simulate_and_get_reward(player_cards, dealer_cards):
+def simulate_and_get_reward(player_cards, dealer_cards) -> int:
     '''
     Since γ=1 and we know intermediate actions have no reward.
     We just want the end reward - hence this function.
