@@ -27,6 +27,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 from itertools import product
+from tqdm import tqdm
 
 _STATES = [(b, p, d) for b, p, d in product(
     (False, True),
@@ -37,7 +38,7 @@ _ACTIONS = [False, True]
 
 class EpsilonSoftPolicy(object):
     def __init__(self):
-        self.policy = {s: [1/len(_ACTIONS)] * len(_ACTIONS) for s in _STATES}
+        self.policy = {s: [1 / len(_ACTIONS)] * len(_ACTIONS) for s in _STATES}
 
     def __getitem__(self, s):
         return self.policy[s]
@@ -83,7 +84,7 @@ def generate_episode(s, pi) -> int:
     player_cards, dealer_cards = initial_state_to_cards(s)
     res = []
     # sar = "state" "action" "reward"
-    sar = [s, random.choices(_ACTIONS, weights=pi[s])]
+    sar = [s, *random.choices(_ACTIONS, weights=pi[s])]
     while sar[1]:
         player_cards.append(card())
         sar.append(-1 if cardsum(player_cards) > 21 else 0)
@@ -91,7 +92,7 @@ def generate_episode(s, pi) -> int:
         if cardsum(player_cards) > 21:
             return res
         s = cards_to_state(player_cards, dealer_cards)
-        sar = [s, random.choices(_ACTIONS, weights=pi[s])]
+        sar = [s, *random.choices(_ACTIONS, weights=pi[s])]
     while cardsum(dealer_cards) < 17:
         dealer_cards.append(card())
     if cardsum(dealer_cards) > 21:
@@ -106,28 +107,35 @@ def generate_episode(s, pi) -> int:
 def visualize_policy(pi):
     state_to_action = np.zeros((2, 10, 10))
     for b, p, d in product(range(2), range(12, 22), range(1, 11)):
-        state_to_action[b][p - 12][d - 1] = int(pi[(bool(b), p, d)][1])
+        state_to_action[b][p - 12][d - 1] = pi[(bool(b), p, d)][1]
     for b in range(2):
         plt.imshow(state_to_action[b])
         plt.show()
 
 
-def main(trials=100000, lmbda=1):
-    pi = Policy()
+def main(trials=700000, lmbda=1, epsilon=4e-1):
+    pi = EpsilonSoftPolicy()
     action_values = {(s, a): 0 for s, a in product(_STATES, _ACTIONS)}
     action_trials = {(s, a): 0 for s, a in product(_STATES, _ACTIONS)}
 
-    for _ in range(trials):
+    for _ in tqdm(range(trials)):
         s = random.choice(_STATES)
         a = random.choice(_ACTIONS)
-        episode = generate_episode(s, a, pi)
+        episode = generate_episode(s, pi)
         G = 0
         for s, a, r in episode[::-1]:
             G = lmbda * G + r
             action_values[(s, a)] = (action_values[(s, a)] *
                                      action_trials[(s, a)] + G) / (action_trials[(s, a)] + 1)
             action_trials[(s, a)] += 1
-            pi[s] = max((False, True), key=lambda a: action_values[(s, a)])
+            optimal_action = max(
+                (False, True), key=lambda a: action_values[(s, a)])
+            pi[s] = [
+                (1 -
+                 epsilon +
+                 epsilon /
+                 len(_ACTIONS) if a == optimal_action else epsilon /
+                    len(_ACTIONS)) for a in _ACTIONS]
 
     visualize_policy(pi)
 
