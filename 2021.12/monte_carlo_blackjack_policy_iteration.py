@@ -5,8 +5,9 @@ Dealer:
  - While sum(cards) < 17: hit
 
 Agent's policy:
- - If sum(cards) < 20: hit
-   - Otherwise, stand.
+ - To be learned.
+
+Note: For everyone: if sum(cards) <= 11 hit by default.
 
 States:
  - Whether the player has a usable ace (False, True)
