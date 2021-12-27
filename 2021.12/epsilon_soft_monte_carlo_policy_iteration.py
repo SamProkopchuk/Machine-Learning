@@ -52,7 +52,7 @@ class EpsilonSoftPolicy(object):
 
 
 def card() -> int:
-    return np.clip(random.randint(1, 14), 1, 10)
+    return min(10, random.randint(1, 14))
 
 
 def has_usable_ace(cards) -> bool:
