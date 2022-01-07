@@ -88,7 +88,7 @@ def environment(s, a) -> tuple:
             d.append(card())
         ps, ds = cardsum(p), cardsum(d)
         sprime = None
-        r = -1 if ps < ds else (0 if ps == ds else 1)
+        r = -1 if ps < ds and ds <= 21 else (0 if ps == ds else 1)
     return r, sprime
 
 
