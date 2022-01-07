@@ -109,7 +109,6 @@ def main(trials=700000, lmbda=1, alpha=0.05):
 
     for _ in tqdm(range(trials)):
         s = random.choice(_STATES)
-        player_cards, dealer_cards = state_to_cards(s)
         while s:
             a = random.choices(_ACTIONS, weights=pi(s))[0]
             r, sprime = environment(s, a)
