@@ -65,13 +65,9 @@ def environment(s, a) -> int:
 #         plt.show()
 
 
-def sorted_list_contains(l, x):
-    i = bisect_left(l, x)
-    return i != len(l) and l[i] == x
-
-
 def insort_if_not_contains(l, x):
-    if not sorted_list_contains(l, x):
+    i = bisect_left(l, x)
+    if i == len(l) or l[i] != x:
         insort(l, x)
 
 
@@ -80,7 +76,6 @@ def main(trials=1000, lmbda=1, alpha=1e-1, epsilon=2e-1, n=50):
     action_values = {(s, a): 1 for s, a in product(_STATES, _ACTIONS)} | {(8, a): 1 for a in _ACTIONS}
     model = {(s, a): None for s, a in product(_STATES, _ACTIONS)}
     seen_s = []
-    seen_sa = []
 
     for _ in tqdm(range(trials)):
         s = random.choice(_STATES)
@@ -95,7 +90,6 @@ def main(trials=1000, lmbda=1, alpha=1e-1, epsilon=2e-1, n=50):
                                                                                                            a])
         model[s, a] = (sprime, r)
         insort_if_not_contains(seen_s, s)
-        insort_if_not_contains(seen_sa, (s, a))
 
         for __ in range(n):
             s = random.choice(seen_s)
