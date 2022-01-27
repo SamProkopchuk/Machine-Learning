@@ -22,11 +22,9 @@ S#X####X#
 #########
 '''
 
-# Use random module since it's like faster
-# than numpy.random when vectorization isn't required
 import random
-import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from itertools import product
 from tqdm import tqdm
 # Efficiency ez clap:
@@ -56,14 +54,22 @@ def environment(s, a) -> int:
         return (s if s > 44 or s in {2, 32} else s + 9), 0
 
 
-# def visualize_policy(pi):
-#     state_to_action = np.zeros((2, 10, 10))
-#     for b, p, d in product(range(2), range(12, 22), range(1, 11)):
-#         state_to_action[b][p - 12][d - 1] = int(pi[bool(b), p, d])
-#     for b in range(2):
-#         plt.imshow(state_to_action[b])
-#         plt.show()
+def visualize_action_values(action_values):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for r, c in product(range(6), range(9)):
+        s = 9 * r + c
+        if s in _STATES:
+            uv = {0: [1, 0], 1: [0, 1], 2: [-1, 0], 3: [0, -1]}[max(_ACTIONS, key=lambda a: action_values[s, a])]
+            ax.quiver(c+0.5, -r-0.5, *uv)
+        elif s == 8:
+            rect = Rectangle([c, -r], 1, -1, color='green')
+            ax.add_patch(rect)
+        else:
+            rect = Rectangle([c, -r], 1, -1, color='black')
+            ax.add_patch(rect)
 
+    plt.show()
 
 def insort_if_not_contains(l, x):
     i = bisect_left(l, x)
@@ -71,9 +77,9 @@ def insort_if_not_contains(l, x):
         insort(l, x)
 
 
-def main(trials=1000, lmbda=1, alpha=1e-1, epsilon=2e-1, n=50):
+def main(trials=5000, lmbda=0.95, alpha=1e-1, epsilon=1e-1, n=20):
     action_to_not = {a: [x for x in _ACTIONS if x != a] for a in _ACTIONS}
-    action_values = {(s, a): 1 for s, a in product(_STATES, _ACTIONS)} | {(8, a): 1 for a in _ACTIONS}
+    action_values = {(s, a): -1 for s, a in product(_STATES, _ACTIONS)} | {(8, a): 0 for a in _ACTIONS}
     model = {(s, a): None for s, a in product(_STATES, _ACTIONS)}
     seen_s = []
 
@@ -95,11 +101,12 @@ def main(trials=1000, lmbda=1, alpha=1e-1, epsilon=2e-1, n=50):
             s = random.choice(seen_s)
             a = random.choice([a for a in _ACTIONS if model[s, a] is not None])
 
-            r, sprime = model[s, a]
+            sprime, r = model[s, a]
             action_values[s,
                           a] += alpha * (r + lmbda * max(action_values[sprime,
                                                                        _a] for _a in _ACTIONS) - action_values[s,
                                                                                                                a])
+    visualize_action_values(action_values)
 
 
 if __name__ == '__main__':
