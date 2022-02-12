@@ -38,7 +38,7 @@ def environment(s, a):
 
 def compress_state(s):
     res = np.zeros((10, 1))
-    # We always set the first value to 0 for w_0/b aka the contant.
+    # We always set the first value to 1 for w_0/b aka the constant.
     res[0] = 1
     res[1] = s / 254
     res[(s + 1).bit_length() + 1] = 1
