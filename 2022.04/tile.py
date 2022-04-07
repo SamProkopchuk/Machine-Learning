@@ -1,5 +1,4 @@
 import numpy as np
-from pandas.util import hash_array
 
 EPSILON = 1e-6
 
