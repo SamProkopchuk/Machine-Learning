@@ -76,13 +76,32 @@ def is_terminal_state(s):
     return s[0] == _POS_BOUNDS[1]
 
 
-def main(trials=100, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0):
+def graph_state_action_values(w, nrows=128, ncols=128):
+    mp = np.zeros((nrows, ncols))
+    for row, p in enumerate(np.linspace(*_POS_BOUNDS, nrows, endpoint=True)):
+        for col, v in enumerate(np.linspace(*_VEL_BOUNDS, ncols, endpoint=True)):
+            mp[row, col] = best_action((p, v), w)
+    plt.imshow(
+        mp,
+        cmap='binary',
+        interpolation='nearest',
+        origin='lower',
+        extent=[*_VEL_BOUNDS, *_POS_BOUNDS],
+        aspect=(_VEL_BOUNDS[1] - _VEL_BOUNDS[0]) / (_POS_BOUNDS[1] - _POS_BOUNDS[0]))
+    plt.xlabel('Velocity')
+    plt.ylabel('Position')
+    plt.colorbar()
+    plt.show()
+
+
+def main(trials=1000, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0, debug=False):
     fig, ax = plt.subplots()
 
     w = np.zeros(_STATE_SHAPE)
-    heatmap = ax.pcolor(w.reshape(_CANVAS_SHAPE), cmap='binary', edgecolors='white')
-    fig.canvas.draw()
-    fig.show()
+    if debug:
+        heatmap = ax.pcolor(w.reshape(_CANVAS_SHAPE), cmap='binary', edgecolors='white')
+        fig.canvas.draw()
+        fig.show()
     action_to_not = {a: [x for x in _ACTIONS if x != a] for a in _ACTIONS}
 
     for _ in tqdm(range(trials)):
@@ -94,7 +113,7 @@ def main(trials=100, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0):
             while True:
                 r, sprime = environment(s, a)
                 x = state_action_to_x(s, a)
-                if True: # sprime[0] > max_pos:
+                if debug: # sprime[0] > max_pos:
                     heatmap = ax.pcolor(w.reshape(_CANVAS_SHAPE), cmap='binary', edgecolors='white')
                     ax.draw_artist(ax.patch)
                     ax.draw_artist(heatmap)
@@ -114,8 +133,7 @@ def main(trials=100, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0):
                     lmbda * state_action_value(xprime, w) - \
                     state_action_value(x, w)) * x
                 s, a = sprime, aprime
-        print('Done')
-
+    graph_state_action_values(w)
 
 if __name__ == '__main__':
     main()
