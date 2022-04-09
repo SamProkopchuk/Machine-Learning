@@ -30,6 +30,7 @@ _N_TILINGS = 8
 _STATE_SHAPE = (len(_ACTIONS) * _POS_BUCKETS * _VEL_BUCKETS * _N_TILINGS, )
 _CANVAS_SHAPE = (3 * _N_TILINGS, _POS_BUCKETS * _VEL_BUCKETS)
 
+
 def clip(a, a_min, a_max):
     '''More efficient than np.clip cuz doesn't need to be a ufunc'''
     return min(a_max, max(a_min, a))
@@ -37,7 +38,8 @@ def clip(a, a_min, a_max):
 
 def next_state(s, a):
     curr_pos, curr_vel = s
-    next_vel = clip(curr_vel + 0.001 * a - 0.0025 * cos(3 * curr_pos), *_VEL_BOUNDS)
+    next_vel = clip(curr_vel + 0.001 * a - 0.0025 *
+                    cos(3 * curr_pos), *_VEL_BOUNDS)
     next_pos = clip(curr_pos + next_vel, *_POS_BOUNDS)
     if next_pos == _POS_BOUNDS[0]:
         next_vel = 0
@@ -94,18 +96,20 @@ def graph_state_action_values(w, nrows=128, ncols=128):
     plt.show()
 
 
-def main(trials=1000, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0, debug=False):
-    fig, ax = plt.subplots()
-
+def fit(trials=1000, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0, debug=False):
     w = np.zeros(_STATE_SHAPE)
+    action_to_not = {a: [x for x in _ACTIONS if x != a] for a in _ACTIONS}
     if debug:
-        heatmap = ax.pcolor(w.reshape(_CANVAS_SHAPE), cmap='binary', edgecolors='white')
+        fig, ax = plt.subplots()
+        heatmap = ax.pcolor(
+            w.reshape(_CANVAS_SHAPE),
+            cmap='binary',
+            edgecolors='white')
         fig.canvas.draw()
         fig.show()
-    action_to_not = {a: [x for x in _ACTIONS if x != a] for a in _ACTIONS}
 
     for _ in tqdm(range(trials)):
-        s = [random.uniform(*_POS_BOUNDS), random.uniform(*_VEL_BOUNDS)]
+        s = [random.uniform(*_POS_BOUNDS), 0]  # random.uniform(*_VEL_BOUNDS)]
         a = best_action(s, w)
         if random.random() < epsilon:
             a = random.choice(action_to_not[a])
@@ -113,8 +117,11 @@ def main(trials=1000, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0, debug=False):
             while True:
                 r, sprime = environment(s, a)
                 x = state_action_to_x(s, a)
-                if debug: # sprime[0] > max_pos:
-                    heatmap = ax.pcolor(w.reshape(_CANVAS_SHAPE), cmap='binary', edgecolors='white')
+                if debug:
+                    heatmap = ax.pcolor(
+                        w.reshape(_CANVAS_SHAPE),
+                        cmap='binary',
+                        edgecolors='white')
                     ax.draw_artist(ax.patch)
                     ax.draw_artist(heatmap)
                     fig.canvas.blit(ax.bbox)
@@ -129,11 +136,33 @@ def main(trials=1000, lmbda=1, alpha=0.5 / _N_TILINGS, epsilon=0, debug=False):
                     aprime = random.choice(action_to_not[aprime])
                 xprime = state_action_to_x(sprime, aprime)
                 w += alpha * (
-                    r + \
-                    lmbda * state_action_value(xprime, w) - \
+                    r +
+                    lmbda * state_action_value(xprime, w) -
                     state_action_value(x, w)) * x
                 s, a = sprime, aprime
     graph_state_action_values(w)
+    return w
+
+
+def render_episodes(w, nepisodes=10):
+    import gym
+    env = gym.make('MountainCar-v0')
+    # env.metadata['render_fps'] = 5
+    for _ in range(nepisodes):
+        s = env.reset()
+        while True:
+            a = best_action(s, w) + 1
+            s, r, done, d = env.step(a)
+            env.render()
+            if done:
+                break
+    env.close()
+
+
+def main():
+    w = fit()
+    render_episodes(w)
+
 
 if __name__ == '__main__':
     main()
