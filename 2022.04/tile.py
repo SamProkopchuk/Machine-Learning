@@ -35,7 +35,7 @@ def tile_encode(samples, feat_ranges, buckets_per_feat, n):
     n: n_tilings
     '''
     samples, feat_ranges, buckets_per_feat = map(
-        np.asarray, 
+        np.asarray,
         (samples, feat_ranges, buckets_per_feat))
     res = np.zeros((len(samples), n, np.product(buckets_per_feat)))
     tilemul = np.arange(n).reshape(-1, 1)
@@ -57,11 +57,6 @@ def tile_encode(samples, feat_ranges, buckets_per_feat, n):
                 len(buckets_per_feat)).T,
             buckets_per_feat)] = 1
     return res
-
-
-def hash_1darray(arr):
-    return np.ravel_multi_index()
-    return 
 
 
 def hash_encode(
