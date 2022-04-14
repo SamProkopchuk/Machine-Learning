@@ -59,6 +59,11 @@ def tile_encode(samples, feat_ranges, buckets_per_feat, n):
     return res
 
 
+def hash_1darray(arr):
+    # NOTE: This function depends on python's random hash seed.
+    return hash(arr.data.tobytes())
+
+
 def hash_encode(
         samples,
         feat_ranges,
