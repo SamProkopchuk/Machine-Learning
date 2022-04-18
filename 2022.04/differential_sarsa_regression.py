@@ -46,7 +46,7 @@ def best_action(s, nn):
     return max(range(2), key=lambda a: nn(s, a))
 
 
-def fit(trials=100000, epsilon=0.1, alpha=0.2, lmbda=0.95, lr=0.0001):
+def fit(trials=50000, epsilon=0.1, alpha=0.2, beta=0.05, lmbda=0.95, lr=0.0001):
     # R is estimate of the average reward
     R = 0
     env = gym.make('CartPole-v1')
@@ -54,41 +54,39 @@ def fit(trials=100000, epsilon=0.1, alpha=0.2, lmbda=0.95, lr=0.0001):
     optimizer = torch.optim.Adam(nn.parameters(), lr=lr)
     loss = torch.nn.MSELoss()
     ep_lens = [0]
+    s, a = env.reset(), random.randint(0, 1)
     for i in tqdm(range(trials)):
-        s = env.reset()
-        a = best_action(s, nn)
+        sprime, r, is_episode_done, _ = env.step(a)
+        aprime = best_action(s, nn)
         if random.random() < epsilon:
-            a = 1 - a
-        while True:
-            sprime, r, is_episode_done, _ = env.step(a)
-            if is_episode_done:
-                r = torch.tensor([-1], dtype=torch.float32)
-                optimizer.zero_grad()
-                loss(r, nn(s, a)).backward()
-                optimizer.step()
-                break
-            else:
-                r = torch.tensor([0], dtype=torch.float32)
-                aprime = best_action(s, nn)
-                if random.random() < epsilon:
-                    aprime = 1 - aprime
-                with torch.no_grad():
-                    pred = lmbda * nn(sprime, aprime).item() + r
-                optimizer.zero_grad()
-                y = nn(s, a)
-                # print(s, a, y)
-                l = loss(pred, y)
-                l.backward()
-                optimizer.step()
-            ep_lens[-1] += 1
-        if i % 100 == 0:
-            print(f'Avg episode length: {sum(ep_lens) / len(ep_lens)}')
-            ep_lens = [0]
-            print(nn(s, 0), nn(s, 1))
-            # for param in nn.parameters():
-                # print(param.data)
+            aprime = 1 - aprime
+        if is_episode_done:
+            r = torch.tensor([-100], dtype=torch.float32)
         else:
-            ep_lens.append(0)
+            r = torch.tensor([1], dtype=torch.float32)
+        with torch.no_grad():
+            pred = r + nn(sprime, aprime).item()
+        l = loss(pred, R + nn(s, a))
+        optimizer.zero_grad()
+        l.backward()
+        optimizer.step()
+        R = R + beta * r
+        if is_episode_done:
+            s = env.reset()
+            a = best_action(s, nn)
+            if random.random() < epsilon:
+                a = 1 - a
+            if len(ep_lens) > 10:
+                print(f'Avg episode length: {sum(ep_lens) / len(ep_lens)}')
+                ep_lens = [0]
+                with torch.no_grad():
+                    print(nn(s, 0), nn(s, 1))
+                i = 0
+            else:
+                ep_lens.append(0)
+        else:
+            s, a = sprime, aprime
+            ep_lens[-1] += 1
     return nn
 
 
