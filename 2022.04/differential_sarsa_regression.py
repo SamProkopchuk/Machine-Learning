@@ -20,8 +20,8 @@ class NN(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.layers = torch.nn.ModuleList([
-            torch.nn.Linear(_STATE_SHAPE[0] << 1, 64),
-            torch.nn.Linear(64, 1)])
+            torch.nn.Linear(_STATE_SHAPE[0] << 1, 256),
+            torch.nn.Linear(256, 1)])
         self.init_weights()
 
     def init_weights(self):
@@ -46,10 +46,11 @@ def best_action(s, nn):
     return max(range(2), key=lambda a: nn(s, a))
 
 
-def fit(trials=50000, epsilon=0.1, alpha=0.2, beta=0.05, lmbda=0.95, lr=0.0001):
+def fit(trials=50000, epsilon=0.1, alpha=1e-6, beta=0.05, lmbda=0.95, lr=0.0001):
     # R is estimate of the average reward
     R = 0
     env = gym.make('CartPole-v1')
+    env._max_episode_steps = np.inf
     nn = NN().float()
     optimizer = torch.optim.Adam(nn.parameters(), lr=lr)
     loss = torch.nn.MSELoss()
@@ -60,17 +61,27 @@ def fit(trials=50000, epsilon=0.1, alpha=0.2, beta=0.05, lmbda=0.95, lr=0.0001):
         aprime = best_action(s, nn)
         if random.random() < epsilon:
             aprime = 1 - aprime
-        if is_episode_done:
-            r = torch.tensor([-100], dtype=torch.float32)
-        else:
-            r = torch.tensor([1], dtype=torch.float32)
+        r = -1 if is_episode_done else 0
         with torch.no_grad():
             pred = r + nn(sprime, aprime).item()
-        l = loss(pred, R + nn(s, a))
-        optimizer.zero_grad()
-        l.backward()
-        optimizer.step()
-        R = R + beta * r
+        y = nn(s, a)
+        d = (r - R + pred - y).item()
+        # l = loss(pred, R + nn(s, a))
+        # optimizer.zero_grad()
+        # l.backward()
+        # optimizer.step()
+        y.backward()
+        with torch.no_grad():
+            for param in nn.parameters():
+                b4 = param.data.detach()
+                param.data = param.data + alpha * d * param.grad.detach()
+                if torch.isnan(param).all():
+                    print(b4)
+                    print(alpha * d * param.grad)
+                    print(' <| |> ')
+                    print(param)
+                    exit(0)
+        R = R + beta * d
         if is_episode_done:
             s = env.reset()
             a = best_action(s, nn)
@@ -81,6 +92,8 @@ def fit(trials=50000, epsilon=0.1, alpha=0.2, beta=0.05, lmbda=0.95, lr=0.0001):
                 ep_lens = [0]
                 with torch.no_grad():
                     print(nn(s, 0), nn(s, 1))
+                    for param in nn.parameters():
+                        print(param)
                 i = 0
             else:
                 ep_lens.append(0)
@@ -90,8 +103,9 @@ def fit(trials=50000, epsilon=0.1, alpha=0.2, beta=0.05, lmbda=0.95, lr=0.0001):
     return nn
 
 
-def render_episodes(w, nepisodes=10):
+def render_episodes(w, nepisodes=3):
     env = gym.make('CartPole-v1')
+    env._max_episode_steps = np.inf
     for _ in range(nepisodes):
         s = env.reset()
         done = False
