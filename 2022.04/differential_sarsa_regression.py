@@ -26,7 +26,7 @@ class NN(torch.nn.Module):
 
     def init_weights(self):
         for layer in self.layers:
-            torch.nn.init.xavier_uniform_(layer.weight)
+            torch.nn.init.kaiming_uniform_(layer.weight)
 
     def forward(self, x):
         for layer in self.layers:
