@@ -1,6 +1,6 @@
 '''
 The moutain car problem
-Solved via sarsa linear regression with tiling
+Solved via semi-gradient sarsa using linear regression with tiling
 '''
 import random
 import numpy as np
