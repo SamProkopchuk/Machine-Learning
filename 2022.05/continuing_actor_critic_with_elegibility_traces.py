@@ -26,9 +26,8 @@ _FEAT_RANGES = [
     [-4.8, 4.8],
     [-3, 3],
     [-0.418, 0.418],
-    [-3, 3]
+    [-3, 3]]
 N_TILES = 8
-
 
 
 def clip_state(s, feat_ranges):
@@ -42,7 +41,7 @@ class H(torch.nn.Module):
         super().__init__()
         self.layers = torch.nn.ModuleList([
             torch.nn.Linear(_STATE_SHAPE[0] * _NUM_ACTIONS, 32),
-            torch.nn.Linear(32, _NUM_ACTIONS)])
+            torch.nn.Linear(32, 1)])
         self.activation_functions = torch.nn.ModuleList([
             torch.nn.LeakyReLU(),
             torch.nn.LeakyReLU()])
@@ -60,48 +59,78 @@ class H(torch.nn.Module):
     def __call__(self, s, a):
         x = np.zeros(_STATE_SHAPE[0] * _NUM_ACTIONS)
         x[a * _STATE_SHAPE[0]: (a+1) * _STATE_SHAPE[0]] = s
-        x = torch.as_tensor(s, dtype=torch.float32)
-        res = super().__call__(x)
+        x = torch.as_tensor(x, dtype=torch.float32)
+        return super().__call__(x)
 
 class Policy:
-    def __init__(self, h_func):
+    def __init__(self, h_func, lmbda, alpha):
         self.h = h_func
+        self.lmbda = lmbda
+        self.alpha = alpha
+        self.optim = torch.optim.Adam(self.h.parameters(), maximize=True)
+        self.z = 0
 
     def __call__(self, s):
-        X = torch.as_tensor([[i] for i in range(_NUM_ACTIONS)], dtype=torch.float32)
-        print(h(X))
-        exit(0)
+        return self.best_action(s)
+
+    def get_action_with_p(self, s):
+        '''
+        Return a tuple of two items:
+            a: The action according to the policy
+            p: The pytorch-differentiable probability of a
+        '''
+        a2p = [self.h(s, a) for a in range(_NUM_ACTIONS)]
+        ps = [p.item() for p in a2p]
+        tot = sum(np.exp(p) for p in ps)
+        weights = [np.exp(p) / tot for p in ps]
+        a = random.choices(range(_NUM_ACTIONS), weights=weights)[0]
+        return a, torch.exp(a2p[a]) / tot
+
+    def best_action(self, s):
+        '''
+        Return the action corresponding to the highest probability
+        '''
+        return max(range(2), key=lambda a: self.h(s, a))
 
     def update_params(self, d, gradient):
-        self.update_elegibility_trace_vector(gradient)
+        self.update_elegibility_trace(gradient)
+        negloss = d * gradient
+        self.optim.zero_grad()
+        negloss.backward()
+        self.optim.step()
 
+    def update_elegibility_trace(self, gradient):
+        self.z = self.lmbda * self.z + gradient
 
-class V:
+class StateValueFunction:
     def __init__(self, buckets_per_feat, n_tiles, lmbda, alpha):
         self.buckets_per_feat = buckets_per_feat
         self.n_tiles = n_tiles
-        self.w = np.zeros((self.n_tiles * np.product(self.buckets_per_feat), ))
+        self.w = np.zeros(self.n_tiles * np.product(self.buckets_per_feat))
         self.lmbda = lmbda
         self.alpha = alpha
         self.reset()
 
     def reset(self):
         self.z = 0
+        self.grad = None
 
     def __call__(self, s):
-        s = self.clip_state(s)
+        s = clip_state(s, _FEAT_RANGES)
         te = tile_encode([s], _FEAT_RANGES, self.buckets_per_feat, self.n_tiles)
-        return self.w.dot(te
+        te = te.ravel()
+        self.grad = te
+        return self.w.dot(te)
 
-    def update_params(self, d, gradient):
-        self.update_elegibility_trace_vector(gradient)
+    def update_params(self, d):
+        self.update_elegibility_trace()
         self.w += self.alpha * d * self.z
 
-    def update_elegibility_trace_vector(self, gradient):
-        self.z = self.lmbda * self.z + gradient
+    def update_elegibility_trace(self):
+        self.z = self.lmbda * self.z + self.grad
 
 
-def fit(trials=50000, pi, v, alpha):
+def fit(pi, v, alpha=1e-2, trials=50000):
     '''
     Run the algorithm with:
         Policy pi
@@ -113,70 +142,48 @@ def fit(trials=50000, pi, v, alpha):
     env = gym.make('CartPole-v1')
     env._max_episode_steps = np.inf
     s = env.reset()
-    for i in tqdm(range(trials)):
-        a = pi(s)
+    ep_lens = [0]
+    for i in (pbar := tqdm(range(trials))):
+        a, y = pi.get_action_with_p(s)
         sprime, r, is_episode_done, _ = env.step(a)
         r = -1 if is_episode_done else 0
         d = r - R + v(sprime) - v(s)
         R += alpha * d
-        v.update_params(d, s)
-                          with torch.no_grad():
-            pred = r + nn(sprime, aprime).item()
-        y = nn(s, a)
-        d = (r - R + pred - y).item()
-        # l = loss(pred, R + nn(s, a))
-        # optimizer.zero_grad()
-        # l.backward()
-        # optimizer.step()
-        y.backward()
-        with torch.no_grad():
-            for param in nn.parameters():
-                b4 = param.data.detach()
-                param.data = param.data + alpha * d * param.grad.detach()
-                if torch.isnan(param).all():
-                    print(b4)
-                    print(alpha * d * param.grad)
-                    print(' <| |> ')
-                    print(param)
-                    exit(0)
-        R = R + beta * d
+        v.update_params(d)
+        pi.update_params(d, y)
+        s = env.reset() if is_episode_done else sprime
         if is_episode_done:
-            s = env.reset()
-            a = best_action(s, nn)
-            if random.random() < epsilon:
-                a = 1 - a
-            if len(ep_lens) > 10:
-                print(f'Avg episode length: {sum(ep_lens) / len(ep_lens)}')
-                ep_lens = [0]
-                with torch.no_grad():
-                    print(nn(s, 0), nn(s, 1))
-                    for param in nn.parameters():
-                        print(param)
-                i = 0
-            else:
-                ep_lens.append(0)
+            ep_lens.append(0)
         else:
-            s, a = sprime, aprime
             ep_lens[-1] += 1
-    return nn
+        pbar.set_description(f'Avg Episode Length: {sum(ep_lens[-10:]) / len(ep_lens[-10:])}')
 
 
-def render_episodes(w, nepisodes=3):
+def render_episodes(pi, nepisodes=3):
     env = gym.make('CartPole-v1')
     env._max_episode_steps = np.inf
     for _ in range(nepisodes):
         s = env.reset()
         done = False
         while not done:
-            a = best_action(s, w)
+            a = pi.best_action(s)
             s, r, done, d = env.step(a)
             env.render()
     env.close()
 
 
 def main():
-    w = fit()
-    render_episodes(w)
+    pi = Policy(
+        h_func=H().float(),
+        lmbda=0.95,
+        alpha=1e-2)
+    v = StateValueFunction(
+        _BUCKETS_PER_FEAT,
+        N_TILES,
+        lmbda=0.95,
+        alpha=1e-2)
+    fit(pi, v)
+    render_episodes(pi)
 
 
 if __name__ == '__main__':
