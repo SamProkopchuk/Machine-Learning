@@ -17,17 +17,17 @@ _STATE_SHAPE = (4, )
 
 
 _BUCKETS_PER_FEAT = [
-    2,
-    3,
     4,
-    4]
+    4,
+    8,
+    8]
 
 _FEAT_RANGES = [
     [-4.8, 4.8],
     [-3, 3],
     [-0.418, 0.418],
     [-3, 3]]
-N_TILES = 8
+_N_TILINGS = 8
 
 
 def clip_state(s, feat_ranges):
@@ -52,15 +52,17 @@ class H(torch.nn.Module):
             torch.nn.init.kaiming_uniform_(layer.weight)
 
     def forward(self, x):
-        for layer, activation_function in zip(self.layers, self.activation_functions):
+        for layer, activation_function in zip(
+                self.layers, self.activation_functions):
             x = activation_function(layer(x))
         return x
 
     def __call__(self, s, a):
         x = np.zeros(_STATE_SHAPE[0] * _NUM_ACTIONS)
-        x[a * _STATE_SHAPE[0]: (a+1) * _STATE_SHAPE[0]] = s
+        x[a * _STATE_SHAPE[0]: (a + 1) * _STATE_SHAPE[0]] = s
         x = torch.as_tensor(x, dtype=torch.float32)
         return super().__call__(x)
+
 
 class Policy:
     def __init__(self, h_func, lmbda, alpha):
@@ -83,7 +85,22 @@ class Policy:
         ps = [p.item() for p in a2p]
         tot = sum(np.exp(p) for p in ps)
         weights = [np.exp(p) / tot for p in ps]
-        a = random.choices(range(_NUM_ACTIONS), weights=weights)[0]
+        try:
+            a = random.choices(range(_NUM_ACTIONS), weights=weights)[0]
+        except ValueError as e:
+            from os import get_terminal_size
+            c = get_terminal_size().columns
+            print(e)
+            print('Debugging info:')
+            print(a2p)
+            print(ps)
+            print(weights)
+            print(tot)
+            print('-' * c)
+            for param in self.h.parameters():
+                print(param.data)
+            print('-' * c)
+            exit(0)
         return a, torch.exp(a2p[a]) / tot
 
     def best_action(self, s):
@@ -102,6 +119,7 @@ class Policy:
     def update_elegibility_trace(self, gradient):
         self.z = self.lmbda * self.z + gradient
 
+
 class StateValueFunction:
     def __init__(self, buckets_per_feat, n_tiles, lmbda, alpha):
         self.buckets_per_feat = buckets_per_feat
@@ -117,7 +135,11 @@ class StateValueFunction:
 
     def __call__(self, s):
         s = clip_state(s, _FEAT_RANGES)
-        te = tile_encode([s], _FEAT_RANGES, self.buckets_per_feat, self.n_tiles)
+        te = tile_encode(
+            [s],
+            _FEAT_RANGES,
+            self.buckets_per_feat,
+            self.n_tiles)
         te = te.ravel()
         self.grad = te
         return self.w.dot(te)
@@ -130,7 +152,7 @@ class StateValueFunction:
         self.z = self.lmbda * self.z + self.grad
 
 
-def fit(pi, v, alpha=1e-2, trials=50000):
+def fit(pi, v, alpha=5e-3, trials=100_000):
     '''
     Run the algorithm with:
         Policy pi
@@ -146,17 +168,17 @@ def fit(pi, v, alpha=1e-2, trials=50000):
     for i in (pbar := tqdm(range(trials))):
         a, y = pi.get_action_with_p(s)
         sprime, r, is_episode_done, _ = env.step(a)
-        r = -1 if is_episode_done else 0
         d = r - R + v(sprime) - v(s)
         R += alpha * d
         v.update_params(d)
         pi.update_params(d, y)
-        s = env.reset() if is_episode_done else sprime
         if is_episode_done:
+            pbar.set_description(f'Avg Episode Length: {sum(ep_lens[-10:]) / len(ep_lens[-10:])} {R}')
             ep_lens.append(0)
+            s = env.reset()
         else:
             ep_lens[-1] += 1
-        pbar.set_description(f'Avg Episode Length: {sum(ep_lens[-10:]) / len(ep_lens[-10:])}')
+            s = sprime
 
 
 def render_episodes(pi, nepisodes=3):
@@ -164,10 +186,10 @@ def render_episodes(pi, nepisodes=3):
     env._max_episode_steps = np.inf
     for _ in range(nepisodes):
         s = env.reset()
-        done = False
-        while not done:
+        is_episode_done = False
+        while not is_episode_done:
             a = pi.best_action(s)
-            s, r, done, d = env.step(a)
+            s, r, is_episode_done, d = env.step(a)
             env.render()
     env.close()
 
@@ -175,12 +197,12 @@ def render_episodes(pi, nepisodes=3):
 def main():
     pi = Policy(
         h_func=H().float(),
-        lmbda=0.95,
-        alpha=1e-2)
+        lmbda=0.80,
+        alpha=1e-1)
     v = StateValueFunction(
         _BUCKETS_PER_FEAT,
-        N_TILES,
-        lmbda=0.95,
+        _N_TILINGS,
+        lmbda=0.80,
         alpha=1e-2)
     fit(pi, v)
     render_episodes(pi)
